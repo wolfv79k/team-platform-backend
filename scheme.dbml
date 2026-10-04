@@ -1,0 +1,234 @@
+Enum Role {
+  USER
+  ADMIN
+}
+
+Enum SkillLevel {
+  BEGINNER
+  MIDDLE
+  ADVANCED
+}
+
+Enum ProjectStatus {
+  RECRUITMENT
+  IN_PROGRESS
+  ENDED
+}
+
+Enum ApplicationType {
+  REQUEST
+  INVITATION
+}
+
+Enum ApplicationStatus {
+  DECLINED
+  ACCEPTED
+  PENDING
+}
+
+Enum CommunityRole {
+  MEMBER
+  MODERATOR
+}
+
+Enum NotificationType {
+  PROJECT_REQUEST
+  PROJECT_INVITATION
+  TEAM_REQUEST
+  TEAM_INVITATION
+  COMMENT
+  PROJECT_DECLINED
+  PROJECT_ACCEPTED
+  TEAM_DECLINED
+  TEAM_ACCEPTED
+}
+
+Table users {
+  id integer [pk, increment]
+  email varchar(255) [unique, not null]
+  passwordHash varchar(255) [not null]
+  username varchar(50) [unique, not null]
+  name varchar(100)
+  bio text
+  avatarUrl varchar(500)
+  role Role [not null, default: 'USER']
+  createdAt timestamp [not null, default: `now()`]
+  locationId integer [not null, ref: > locations.id]
+}
+
+Table skills {
+  id integer [pk, increment]
+  name varchar(100) [unique, not null]
+}
+
+Table roles {
+  id integer [pk, increment]
+  name varchar(100) [unique, not null]
+}
+
+Table locations {
+  id integer [pk, increment]
+  name varchar(100) [unique, not null]
+}
+
+Table userSkills {
+  userId integer [not null, ref: > users.id]
+  skillId integer [not null, ref: > skills.id]
+  skillLevel SkillLevel [not null, default:'BEGINNER', note:'Какой уровень есть']
+  indexes {
+    (userId, skillId) [pk]
+  }
+}
+
+Table projectSkills {
+  projectId integer [not null, ref: > projects.id]
+  skillId integer [not null, ref: > skills.id]
+  skillLevel SkillLevel [not null, default:'BEGINNER', note:'Какой уровень требуется']
+  indexes {
+    (projectId, skillId) [pk]
+  }
+}
+
+Table teamSkills {
+  teamId integer [not null, ref: > teams.id]
+  skillId integer [not null, ref: > skills.id]
+  skillLevel SkillLevel [not null, default:'BEGINNER', note:'Какой уровень требуется']
+  indexes {
+    (teamId, skillId) [pk]
+  }
+}
+
+Table projects {
+  id integer [pk, increment]
+  name varchar(100) [not null]
+  description text
+  status ProjectStatus [not null, default: 'RECRUITMENT']
+  authorId integer [not null, ref: > users.id]
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table projectMembers {
+  userId integer [not null, ref: > users.id]
+  roleId integer [not null, ref: > roles.id]
+  projectId integer [not null, ref: > projects.id]
+  contribution text
+  indexes {
+    (userId, projectId) [pk]
+  }
+}
+
+Table projectApplications {
+  id integer [pk, increment]
+  userId integer [not null, ref: > users.id]
+  projectId integer [not null, ref: > projects.id]
+  roleId integer [not null, ref: > roles.id]
+  type ApplicationType [not null, default: 'REQUEST']
+  message text
+  status ApplicationStatus [not null, default: 'PENDING']
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table ideas {
+  id integer [pk, increment]
+  name varchar(100) [not null]
+  authorId integer [not null, ref: > users.id]
+  description text
+  projectId integer [unique, ref: - projects.id]
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table communities {
+  id integer [pk, increment]
+  name varchar(100) [not null, unique]
+  description text
+  creatorId integer [not null, ref: > users.id]
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table communityMembers {
+  userId integer [not null, ref: > users.id]
+  role CommunityRole [not null, default: 'MEMBER']
+  communityId integer [not null, ref: > communities.id]
+  indexes {
+    (userId, communityId) [pk]
+  }
+}
+
+Table posts {
+  id integer [pk, increment]
+  authorId integer [not null, ref: > users.id]
+  communityId integer [not null, ref: > communities.id]
+  title varchar(255)
+  imageUrl varchar(500)
+  text text [not null]
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table comments {
+  id integer [pk, increment]
+  authorId integer [not null, ref: > users.id]
+  postId integer [not null, ref: > posts.id]
+  text text [not null]
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table teams {
+  id integer [pk, increment]
+  name varchar(100) [not null]
+  description text
+  captainId integer [not null, ref: > users.id]
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table teamMembers {
+  userId integer [not null, ref: > users.id]
+  teamId integer [not null, ref: > teams.id]
+  contribution text
+  indexes {
+    (userId, teamId) [pk]
+  }
+}
+
+Table hackathons {
+  id integer [pk, increment]
+  name varchar(255) [not null]
+  description text
+  startDate timestamp [not null]
+  endDate timestamp [not null]
+  location varchar(255)
+  organizerUrl varchar(500)
+}
+
+Table hackathonTeams {
+  teamId integer [not null, ref: > teams.id]
+  hackathonId integer [not null, ref: > hackathons.id]
+  indexes {
+    (teamId, hackathonId) [pk]
+  }
+}
+
+Table teamApplications {
+  id integer [pk, increment]
+  userId integer [not null, ref: > users.id]
+  teamId integer [not null, ref: > teams.id]
+  type ApplicationType [not null, default: 'REQUEST']
+  message text
+  status ApplicationStatus [not null, default: 'PENDING']
+  createdAt timestamp [not null, default: `now()`]
+}
+
+Table notifications {
+  id integer [pk, increment]
+  recipientId integer [not null, ref: > users.id]
+  entityId integer [not null, note: '''
+  id объекта, к которому ведёт уведомление.
+  Таблица зависит от type:
+  PROJECT_* → projectApplications
+  TEAM_* → teamApplications
+  COMMENT → comments
+  ''']
+  type NotificationType [not null]
+  text text
+  isRead boolean [not null, default: false]
+  createdAt timestamp [not null, default: `now()`]
+}
