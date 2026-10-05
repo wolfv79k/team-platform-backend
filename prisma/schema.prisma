@@ -73,7 +73,15 @@ model User {
   authoredProjects    Project[]
   projectMembers      ProjectMember[]
   projectApplications ProjectApplication[]
-  ideas               idea[]
+  ideas               Idea[]
+  createdCommunities  Community[]
+  communityMembers    CommunityMember[]
+  posts               Post[]
+  comments            Comment[]
+  captainedTeams      Team[]
+  teamMembers         TeamMember[]
+  teamApplications    TeamApplication[]
+  notifications       Notification[]
 }
 
 model Skill {
@@ -81,6 +89,7 @@ model Skill {
   name          String         @unique @db.VarChar(100)
   userSkills    UserSkill[]
   projectSkills ProjectSkill[]
+  teamSkills    TeamSkill[]
 }
 
 model Role {
@@ -117,7 +126,7 @@ model Project {
   projectMembers      ProjectMember[]
   projectSkills       ProjectSkill[]
   projectApplications ProjectApplication[]
-  idea                idea?
+  idea                Idea?
 }
 
 model ProjectMember {
@@ -165,4 +174,129 @@ model Idea {
   projectId   Int?     @unique
   project     Project? @relation(fields: [projectId], references: [id])
   createdAt   DateTime @default(now())
+}
+
+model Community {
+  id               Int               @id @default(autoincrement())
+  name             String            @unique @db.VarChar(100)
+  description      String?           @db.Text
+  creatorId        Int
+  creator          User              @relation(fields: [creatorId], references: [id])
+  createdAt        DateTime          @default(now())
+  communityMembers CommunityMember[]
+  posts            Post[]
+}
+
+model CommunityMember {
+  userId      Int
+  user        User          @relation(fields: [userId], references: [id])
+  role        CommunityRole @default(MEMBER)
+  communityId Int
+  community   Community     @relation(fields: [communityId], references: [id])
+
+  @@id([userId, communityId])
+}
+
+model Post {
+  id          Int       @id @default(autoincrement())
+  authorId    Int
+  author      User      @relation(fields: [authorId], references: [id])
+  communityId Int
+  community   Community @relation(fields: [communityId], references: [id])
+  title       String?   @db.VarChar(255)
+  imageUrl    String?   @db.VarChar(500)
+  text        String    @db.Text
+  createdAt   DateTime  @default(now())
+  comments    Comment[]
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id])
+  text      String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model Team {
+  id               Int               @id @default(autoincrement())
+  name             String            @db.VarChar(100)
+  description      String?           @db.Text
+  captainId        Int
+  captain          User              @relation(fields: [captainId], references: [id])
+  createdAt        DateTime          @default(now())
+  teamMembers      TeamMember[]
+  teamSkills       TeamSkill[]
+  hackathonTeams   HackathonTeam[]
+  teamApplications TeamApplication[]
+}
+
+model TeamMember {
+  userId       Int
+  user         User    @relation(fields: [userId], references: [id])
+  teamId       Int
+  team         Team    @relation(fields: [teamId], references: [id])
+  contribution String? @db.Text
+
+  @@id([userId, teamId])
+}
+
+model TeamSkill {
+  teamId     Int
+  team       Team       @relation(fields: [teamId], references: [id])
+  skillId    Int
+  skill      Skill      @relation(fields: [skillId], references: [id])
+  skillLevel SkillLevel @default(BEGINNER)
+
+  @@id([teamId, skillId])
+}
+
+model Hackathon {
+  id             Int             @id @default(autoincrement())
+  name           String          @db.VarChar(255)
+  description    String?         @db.Text
+  startDate      DateTime
+  endDate        DateTime
+  location       String?         @db.VarChar(255)
+  organizerUrl   String?         @db.VarChar(500)
+  hackathonTeams HackathonTeam[]
+}
+
+model HackathonTeam {
+  teamId      Int
+  team        Team      @relation(fields: [teamId], references: [id])
+  hackathonId Int
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id])
+
+  @@id([teamId, hackathonId])
+}
+
+model TeamApplication {
+  id        Int               @id @default(autoincrement())
+  userId    Int
+  user      User              @relation(fields: [userId], references: [id])
+  teamId    Int
+  team      Team              @relation(fields: [teamId], references: [id])
+  type      ApplicationType   @default(REQUEST)
+  message   String?           @db.Text
+  status    ApplicationStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+}
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  recipientId Int
+  recipient   User             @relation(fields: [recipientId], references: [id])
+  /// id объекта, к которому ведёт уведомление.
+  /// Таблица зависит от type:
+  /// PROJECT_* → projectApplications
+  /// TEAM_* → teamApplications
+  /// COMMENT → comments
+  entityId    Int
+  type        NotificationType
+  text        String?          @db.Text
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
 }
