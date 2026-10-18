@@ -2,14 +2,7 @@ import bcrypt from "bcryptjs";
 import prisma from "../config/db.js"
 import { AppError } from "../utils/AppError.js";
 import jwt from "jsonwebtoken";
-
-const secret = process.env.JWT_SECRET
-
-if (!secret) {
-    throw new Error('JWT_SECRET не задан в .env')
-}
-
-const JWT_SECRET: string = secret
+import JWT_SECRET from "../config/jwt.js";
 
 export async function register(email: string, username: string, password: string, locationId: number) {
     const checkEmail = await prisma.user.findUnique({
@@ -55,5 +48,18 @@ export async function login(email: string, password: string) {
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" })
 
     return { token, user: publicUser }
+}
+
+export async function getMe(userId: number) {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        omit: { passwordHash: true }
+    })
+
+    if (!user) {
+        throw new AppError("Пользователь не найден", 404)
+    }
+
+    return user
 }
 
