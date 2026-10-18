@@ -1,5 +1,6 @@
 import express from 'express'
 import healthRouter from './routes/health.routes.js'
+import authRouter from './routes/auth.routes.js'
 import notFound from './middlewares/notFound.js'
 import errorHandler from './middlewares/errorHandler.js'
 
@@ -7,6 +8,7 @@ const app = express()
 
 app.use(express.json())
 app.use('/api', healthRouter)
+app.use('/api/auth', authRouter)
 app.use(notFound)
 app.use(errorHandler)
 
