@@ -1,6 +1,7 @@
 import express from 'express'
 import healthRouter from './routes/health.routes.js'
 import authRouter from './routes/auth.routes.js'
+import dictionaryRouter from './routes/dictionary.routes.js'
 import notFound from './middlewares/notFound.js'
 import errorHandler from './middlewares/errorHandler.js'
 import cors from 'cors'
@@ -15,6 +16,7 @@ if (!CLIENT_URL) {
 app.use(cors({ origin: CLIENT_URL }))
 app.use(express.json())
 app.use('/api', healthRouter)
+app.use('/api', dictionaryRouter)
 app.use('/api/auth', authRouter)
 app.use(notFound)
 app.use(errorHandler)
