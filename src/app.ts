@@ -3,9 +3,16 @@ import healthRouter from './routes/health.routes.js'
 import authRouter from './routes/auth.routes.js'
 import notFound from './middlewares/notFound.js'
 import errorHandler from './middlewares/errorHandler.js'
+import cors from 'cors'
 
 const app = express()
+const CLIENT_URL = process.env.CLIENT_URL
 
+if (!CLIENT_URL) {
+    throw new Error('CLIENT_URL не задан в .env')
+}
+
+app.use(cors({ origin: CLIENT_URL }))
 app.use(express.json())
 app.use('/api', healthRouter)
 app.use('/api/auth', authRouter)
