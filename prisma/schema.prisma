@@ -59,16 +59,16 @@ enum NotificationType {
 
 model User {
   id                  Int                  @id @default(autoincrement())
-  email               String               @unique @db.VarChar(255)
-  passwordHash        String               @db.VarChar(255)
+  email               String?              @unique @db.VarChar(255)
+  passwordHash        String?              @db.VarChar(255)
   username            String               @unique @db.VarChar(50)
   name                String?              @db.VarChar(100)
   bio                 String?              @db.Text
   avatarUrl           String?              @db.VarChar(500)
   role                AppRole              @default(USER)
   createdAt           DateTime             @default(now())
-  locationId          Int
-  location            Location             @relation(fields: [locationId], references: [id])
+  locationId          Int?
+  location            Location?            @relation(fields: [locationId], references: [id])
   userSkills          UserSkill[]
   authoredProjects    Project[]
   projectMembers      ProjectMember[]
@@ -82,6 +82,7 @@ model User {
   teamMembers         TeamMember[]
   teamApplications    TeamApplication[]
   notifications       Notification[]
+  oauthAccounts       OAuthAccount[]
 }
 
 model Skill {
@@ -317,4 +318,15 @@ model Notification {
   text        String?          @db.Text
   isRead      Boolean          @default(false)
   createdAt   DateTime         @default(now())
+}
+
+model OAuthAccount {
+  id                Int      @id @default(autoincrement())
+  provider          String   @db.VarChar(50)
+  providerAccountId String   @db.VarChar(255)
+  userId            Int
+  user              User     @relation(fields: [userId], references: [id])
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerAccountId])
 }

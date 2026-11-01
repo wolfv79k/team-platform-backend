@@ -1,4 +1,4 @@
-import { register, login, getMe } from "../services/auth.service.js"
+import { register, login, oAuthLogin, getMe } from "../services/auth.service.js"
 import type { Request, Response } from 'express'
 import { AppError } from "../utils/AppError.js"
 
@@ -12,6 +12,15 @@ export async function registerController(req: Request, res: Response) {
 export async function loginController(req: Request, res: Response) {
     const { email, password } = req.body
     const result = await login(email, password)
+    res.json(result)
+}
+
+export async function oAuthController(req: Request, res: Response) {
+    const { provider, providerAccountId, email, name, image, providerLogin } = req.body
+    if (typeof provider !== 'string' || typeof providerAccountId !== 'string') {
+        throw new AppError("Некорректный провайдер", 400)
+    }
+    const result = await oAuthLogin(provider, providerAccountId, name ?? null, email ?? null, image ?? null, providerLogin ?? null)
     res.json(result)
 }
 
