@@ -1,5 +1,6 @@
 import prisma from "../config/db.js"
-import { AppError } from "../utils/AppError.js";
+import { AppError } from "../utils/AppError.js"
+import { SkillLevel } from "../generated/prisma/enums.js"
 
 export async function getUserByUsername(username: string) {
     const user = await prisma.user.findUnique({
@@ -44,4 +45,39 @@ export async function updateMe(userId: number, data: { name?: string, bio?: stri
 
     const updateUser = await prisma.user.update({ where: { id: userId }, data: { name, bio, username, locationId }, omit: { passwordHash: true, email: true } })
     return updateUser
+}
+
+export async function setUserSkill(userId: number, skillId: number, skillLevel?: SkillLevel) {
+    const skill = await prisma.skill.findUnique({
+        where: { id: skillId }
+    })
+
+    if (!skill) {
+        throw new AppError("Навык не найден", 404)
+    }
+
+    const result = await prisma.userSkill.upsert({
+        where: { userId_skillId: { userId, skillId } },
+        create: {
+            userId, skillId, skillLevel
+        },
+        update: { skillLevel },
+        include: { skill: true }
+    })
+
+    return result
+}
+
+export async function removeUserSkill(userId: number, skillId: number) {
+    const skill = await prisma.skill.findUnique({
+        where: { id: skillId }
+    })
+
+    const result = await prisma.userSkill.deleteMany({
+        where: { userId, skillId }
+    })
+
+    if (result.count === 0) {
+        throw new AppError("Навык не найден в профиле", 404)
+    }
 }
