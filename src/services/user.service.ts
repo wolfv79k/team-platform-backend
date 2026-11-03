@@ -1,6 +1,7 @@
 import prisma from "../config/db.js"
 import { AppError } from "../utils/AppError.js"
 import { SkillLevel } from "../generated/prisma/enums.js"
+import supabase from "../config/supabase.js"
 
 export async function getUserByUsername(username: string) {
     const user = await prisma.user.findUnique({
@@ -80,4 +81,29 @@ export async function removeUserSkill(userId: number, skillId: number) {
     if (result.count === 0) {
         throw new AppError("Навык не найден в профиле", 404)
     }
+}
+
+export async function updateAvatar(userId: number, file: Express.Multer.File) {
+    const ext = file.mimetype.split('/')[1]
+
+    const path = `${userId}/${Date.now()}.${ext}`
+
+    const { error } = await supabase.storage
+        .from('avatars')
+        .upload(path, file.buffer, { contentType: file.mimetype })
+
+    if (error) {
+        console.error(error)
+        throw new AppError("Не удалось загрузить файл", 500)
+    }
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+
+    const user = await prisma.user.update({
+        where: { id: userId },
+        data: { avatarUrl: data.publicUrl },
+        omit: { passwordHash: true }
+    })
+
+    return user
 }

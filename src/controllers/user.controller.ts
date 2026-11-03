@@ -1,4 +1,4 @@
-import { getUserByUsername, removeUserSkill, setUserSkill, updateMe } from "../services/user.service.js"
+import { getUserByUsername, removeUserSkill, setUserSkill, updateAvatar, updateMe } from "../services/user.service.js"
 import type { Request, Response } from 'express'
 import { AppError } from "../utils/AppError.js"
 import { SkillLevel } from "../generated/prisma/enums.js"
@@ -90,4 +90,21 @@ export async function removeUserSkillController(req: Request, res: Response) {
 
     await removeUserSkill(userId, id)
     res.status(204).end()
+}
+
+export async function updateAvatarController(req: Request, res: Response) {
+    const userId = req.userId
+    const file = req.file
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    if (!file) {
+        throw new AppError("Файл не передан", 400)
+
+    }
+
+    const result = await updateAvatar(userId, file)
+    res.json(result)
 }
