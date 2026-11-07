@@ -1,4 +1,6 @@
 import prisma from "../config/db.js"
+import type { Prisma } from "../generated/prisma/client.js"
+import type { ProjectStatus } from "../generated/prisma/enums.js"
 import { AppError } from "../utils/AppError.js"
 import { PUBLIC_USER_OMIT } from "../utils/publicUser.js"
 
@@ -54,4 +56,44 @@ export async function getProjectById(projectId: number) {
     }
 
     return project
+}
+
+export async function getProjects(data: { status?: ProjectStatus, skillId?: number, roleId?: number, search?: string, page: number, limit: number }) {
+    const { status, skillId, roleId, search, page, limit } = data
+
+    const where: Prisma.ProjectWhereInput = {}
+
+    if (status) {
+        where.status = status
+    }
+
+    if (skillId !== undefined) {
+        where.projectSkills = { some: { skillId } }
+    }
+
+    if (roleId !== undefined) {
+        where.projectOpenRoles = { some: { roleId } }
+    }
+
+    if (search) {
+        where.name = { contains: search, mode: "insensitive" }
+    }
+
+    const [projects, total] = await Promise.all([
+        prisma.project.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            skip: (page - 1) * limit,
+            take: limit,
+            include: {
+                author: { omit: PUBLIC_USER_OMIT },
+                projectSkills: {
+                    include: { skill: true }
+                },
+                projectOpenRoles: { include: { role: true } }
+            }
+        }),
+        prisma.project.count({ where })
+    ])
+    return { items: projects, total, page, limit }
 }

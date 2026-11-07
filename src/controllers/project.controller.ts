@@ -1,7 +1,8 @@
 import type { Request, Response } from "express"
 import { AppError } from "../utils/AppError.js"
-import { createProject, getProjectById } from "../services/project.service.js"
+import { createProject, getProjectById, getProjects } from "../services/project.service.js"
 import { parseId } from "../utils/parseId.js"
+import { ProjectStatus } from "../generated/prisma/enums.js"
 
 export async function createProjectController(req: Request, res: Response) {
     const userId = req.userId
@@ -47,5 +48,33 @@ export async function getProjectController(req: Request, res: Response) {
     const id = parseId(req.params.id)
 
     const result = await getProjectById(id)
+    res.json(result)
+}
+
+export async function getProjectsController(req: Request, res: Response) {
+    const { status, skillId, roleId, search, page, limit } = req.query
+
+    if (status !== undefined && (typeof status !== "string" || !(Object.values(ProjectStatus) as string[]).includes(status))) {
+        throw new AppError("Неверный статус", 400)
+    }
+
+    if (search !== undefined && typeof search !== "string") {
+        throw new AppError("Неверный поиск", 400)
+    }
+
+    const skillIdNum = skillId === undefined ? undefined : parseId(skillId)
+    const roleIdNum = roleId === undefined ? undefined : parseId(roleId)
+    const pageNum = page === undefined ? 1 : parseId(page)
+    const limitNum = limit === undefined ? 10 : Math.min(parseId(limit), 50)
+
+    const result = await getProjects({
+        status: status as ProjectStatus | undefined,
+        skillId: skillIdNum,
+        roleId: roleIdNum,
+        search: search?.trim() || undefined,
+        page: pageNum,
+        limit: limitNum
+    })
+
     res.json(result)
 }
