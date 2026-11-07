@@ -2,6 +2,7 @@ import { getUserByUsername, removeUserSkill, setUserSkill, updateAvatar, updateM
 import type { Request, Response } from 'express'
 import { AppError } from "../utils/AppError.js"
 import { SkillLevel } from "../generated/prisma/enums.js"
+import { parseId } from "../utils/parseId.js"
 
 export async function getUserController(req: Request, res: Response) {
     const username = req.params.username
@@ -53,17 +54,7 @@ export async function setUserSkillController(req: Request, res: Response) {
         throw new AppError("Неверный уровень навыка", 400)
     }
 
-    const { skillId } = req.params
-
-    if (typeof skillId !== "string") {
-        throw new AppError("Неверный формат навыка", 400)
-    }
-
-    const id = Number(skillId)
-
-    if (!Number.isInteger(id)) {
-        throw new AppError("Неверный формат навыка", 400)
-    }
+    const id = parseId(req.params.skillId)
 
     const result = await setUserSkill(userId, id, skillLevel)
     res.json(result)
@@ -76,17 +67,7 @@ export async function removeUserSkillController(req: Request, res: Response) {
         throw new AppError("Требуется авторизация", 401)
     }
 
-    const { skillId } = req.params
-
-    if (typeof skillId !== "string") {
-        throw new AppError("Неверный формат навыка", 400)
-    }
-
-    const id = Number(skillId)
-
-    if (!Number.isInteger(id)) {
-        throw new AppError("Неверный формат навыка", 400)
-    }
+    const id = parseId(req.params.skillId)
 
     await removeUserSkill(userId, id)
     res.status(204).end()

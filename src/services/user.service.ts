@@ -2,6 +2,7 @@ import prisma from "../config/db.js"
 import { AppError } from "../utils/AppError.js"
 import { SkillLevel } from "../generated/prisma/enums.js"
 import supabase from "../config/supabase.js"
+import { PUBLIC_USER_OMIT } from "../utils/publicUser.js"
 
 export async function getUserByUsername(username: string) {
     const user = await prisma.user.findUnique({
@@ -11,7 +12,7 @@ export async function getUserByUsername(username: string) {
             userSkills: { include: { skill: true } },
             projectMembers: { include: { project: true, role: true } }
         },
-        omit: { passwordHash: true, email: true }
+        omit: PUBLIC_USER_OMIT
     })
 
     if (!user) {
@@ -40,11 +41,10 @@ export async function updateMe(userId: number, data: { name?: string, bio?: stri
 
         if (!exist) {
             throw new AppError("Город не найден", 400)
-
         }
     }
 
-    const updateUser = await prisma.user.update({ where: { id: userId }, data: { name, bio, username, locationId }, omit: { passwordHash: true, email: true } })
+    const updateUser = await prisma.user.update({ where: { id: userId }, data: { name, bio, username, locationId }, omit: PUBLIC_USER_OMIT })
     return updateUser
 }
 

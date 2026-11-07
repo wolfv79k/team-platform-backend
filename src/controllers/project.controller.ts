@@ -1,6 +1,7 @@
 import type { Request, Response } from "express"
 import { AppError } from "../utils/AppError.js"
-import { createProject } from "../services/project.service.js"
+import { createProject, getProjectById } from "../services/project.service.js"
+import { parseId } from "../utils/parseId.js"
 
 export async function createProjectController(req: Request, res: Response) {
     const userId = req.userId
@@ -40,4 +41,11 @@ export async function createProjectController(req: Request, res: Response) {
 
     const result = await createProject(userId, { name, roleId, description, slogan, projectUrl, videoUrl, partners })
     res.status(201).json(result)
+}
+
+export async function getProjectController(req: Request, res: Response) {
+    const id = parseId(req.params.id)
+
+    const result = await getProjectById(id)
+    res.json(result)
 }
