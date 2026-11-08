@@ -4,7 +4,17 @@ import type { ProjectStatus } from "../generated/prisma/enums.js"
 import { AppError } from "../utils/AppError.js"
 import { PUBLIC_USER_OMIT } from "../utils/publicUser.js"
 
+const PROJECT_DETAILS_INCLUDE = {
+    author: { omit: PUBLIC_USER_OMIT },
+    projectMembers: { include: { user: { omit: PUBLIC_USER_OMIT }, role: true } },
+    projectSkills: { include: { skill: true } },
+    projectOpenRoles: { include: { role: true } }
+} as const
+
 export async function createProject(authorId: number, data: { name: string, roleId: number, description?: string, slogan?: string, projectUrl?: string, videoUrl?: string, partners?: string[] }) {
+    const { name, description, slogan, projectUrl, videoUrl, partners } = data
+
+
     const role = await prisma.role.findUnique({
         where: { id: data.roleId }
     })
@@ -15,12 +25,12 @@ export async function createProject(authorId: number, data: { name: string, role
 
     const project = await prisma.project.create({
         data: {
-            name: data.name,
-            description: data.description,
-            slogan: data.slogan,
-            projectUrl: data.projectUrl,
-            videoUrl: data.videoUrl,
-            partners: data.partners,
+            name,
+            description,
+            slogan,
+            projectUrl,
+            videoUrl,
+            partners,
             authorId,
             projectMembers: {
                 create: { userId: authorId, roleId: data.roleId }
@@ -43,12 +53,7 @@ export async function createProject(authorId: number, data: { name: string, role
 export async function getProjectById(projectId: number) {
     const project = await prisma.project.findUnique({
         where: { id: projectId },
-        include: {
-            author: { omit: PUBLIC_USER_OMIT },
-            projectMembers: { include: { user: { omit: { passwordHash: true, email: true } }, role: true } },
-            projectSkills: { include: { skill: true } },
-            projectOpenRoles: { include: { role: true } },
-        }
+        include: PROJECT_DETAILS_INCLUDE
     })
 
     if (!project) {
@@ -96,4 +101,39 @@ export async function getProjects(data: { status?: ProjectStatus, skillId?: numb
         prisma.project.count({ where })
     ])
     return { items: projects, total, page, limit }
+}
+
+export async function updateProject(userId: number, projectId: number, data: { name?: string, status?: ProjectStatus, description?: string, slogan?: string, projectUrl?: string, videoUrl?: string, partners?: string[] }) {
+    const { name, status, description, slogan, projectUrl, videoUrl, partners } = data
+
+    const project = await prisma.project.findUnique({
+        where: { id: projectId }
+    })
+
+    if (!project) {
+        throw new AppError("Проект не найден", 404)
+    }
+
+    if (project.authorId !== userId) {
+        throw new AppError("Редактировать может только автор проекта", 403)
+    }
+
+    const updated = await prisma.project.update({
+        where: {
+            id: projectId
+        },
+        data: {
+            name,
+            status,
+            description,
+            slogan,
+            projectUrl,
+            videoUrl,
+            partners
+        },
+        include: PROJECT_DETAILS_INCLUDE
+
+    })
+
+    return updated
 }
