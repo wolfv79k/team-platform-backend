@@ -70,10 +70,6 @@ export async function setUserSkill(userId: number, skillId: number, skillLevel?:
 }
 
 export async function removeUserSkill(userId: number, skillId: number) {
-    const skill = await prisma.skill.findUnique({
-        where: { id: skillId }
-    })
-
     const result = await prisma.userSkill.deleteMany({
         where: { userId, skillId }
     })

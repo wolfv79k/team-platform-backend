@@ -1,6 +1,6 @@
 import prisma from "../config/db.js"
 import type { Prisma } from "../generated/prisma/client.js"
-import type { ProjectStatus } from "../generated/prisma/enums.js"
+import type { ProjectStatus, SkillLevel } from "../generated/prisma/enums.js"
 import { AppError } from "../utils/AppError.js"
 import { PUBLIC_USER_OMIT } from "../utils/publicUser.js"
 
@@ -153,4 +153,41 @@ export async function deleteProject(userId: number, projectId: number) {
             id: projectId
         }
     })
+}
+
+export async function setProjectSkill(userId: number, projectId: number, skillId: number, skillLevel?: SkillLevel) {
+
+    await getOwnedProject(userId, projectId)
+
+    const skill = await prisma.skill.findUnique({
+        where: { id: skillId }
+    })
+
+    if (!skill) {
+        throw new AppError("Навык не найден", 404)
+    }
+
+    const result = await prisma.projectSkill.upsert({
+        where: { projectId_skillId: { projectId, skillId } },
+        create: {
+            projectId, skillId, skillLevel
+        },
+        update: { skillLevel },
+        include: { skill: true }
+    })
+
+    return result
+}
+
+export async function removeProjectSkill(userId: number, projectId: number, skillId: number) {
+
+    await getOwnedProject(userId, projectId)
+
+    const result = await prisma.projectSkill.deleteMany({
+        where: { projectId, skillId }
+    })
+
+    if (result.count === 0) {
+        throw new AppError("Навык не найден в проекте", 404)
+    }
 }

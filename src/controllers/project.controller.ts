@@ -1,8 +1,9 @@
 import type { Request, Response } from "express"
 import { AppError } from "../utils/AppError.js"
-import { createProject, deleteProject, getProjectById, getProjects, updateProject } from "../services/project.service.js"
+import { createProject, deleteProject, getProjectById, getProjects, removeProjectSkill, setProjectSkill, updateProject } from "../services/project.service.js"
 import { parseId } from "../utils/parseId.js"
-import { ProjectStatus } from "../generated/prisma/enums.js"
+import { ProjectStatus, SkillLevel } from "../generated/prisma/enums.js"
+
 
 export async function createProjectController(req: Request, res: Response) {
     const userId = req.userId
@@ -132,5 +133,38 @@ export async function deleteProjectController(req: Request, res: Response) {
     const projectId = parseId(req.params.id)
 
     await deleteProject(userId, projectId)
+    res.status(204).end()
+}
+
+export async function setProjectSkillController(req: Request, res: Response) {
+    const userId = req.userId
+    const { skillLevel } = req.body ?? {}
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    if (skillLevel !== undefined && !Object.values(SkillLevel).includes(skillLevel)) {
+        throw new AppError("Неверный уровень навыка", 400)
+    }
+
+    const skillId = parseId(req.params.skillId)
+    const projectId = parseId(req.params.id)
+
+    const result = await setProjectSkill(userId, projectId, skillId, skillLevel)
+    res.json(result)
+}
+
+export async function removeProjectSkillController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const skillId = parseId(req.params.skillId)
+    const projectId = parseId(req.params.id)
+
+    await removeProjectSkill(userId, projectId, skillId)
     res.status(204).end()
 }
