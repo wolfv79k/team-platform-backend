@@ -11,6 +11,22 @@ const PROJECT_DETAILS_INCLUDE = {
     projectOpenRoles: { include: { role: true } }
 } as const
 
+async function getOwnedProject(userId: number, projectId: number) {
+    const project = await prisma.project.findUnique({
+        where: { id: projectId }
+    })
+
+    if (!project) {
+        throw new AppError("Проект не найден", 404)
+    }
+
+    if (project.authorId !== userId) {
+        throw new AppError("Действие доступно только автору проекта", 403)
+    }
+
+    return project
+}
+
 export async function createProject(authorId: number, data: { name: string, roleId: number, description?: string, slogan?: string, projectUrl?: string, videoUrl?: string, partners?: string[] }) {
     const { name, description, slogan, projectUrl, videoUrl, partners } = data
 
@@ -106,17 +122,7 @@ export async function getProjects(data: { status?: ProjectStatus, skillId?: numb
 export async function updateProject(userId: number, projectId: number, data: { name?: string, status?: ProjectStatus, description?: string, slogan?: string, projectUrl?: string, videoUrl?: string, partners?: string[] }) {
     const { name, status, description, slogan, projectUrl, videoUrl, partners } = data
 
-    const project = await prisma.project.findUnique({
-        where: { id: projectId }
-    })
-
-    if (!project) {
-        throw new AppError("Проект не найден", 404)
-    }
-
-    if (project.authorId !== userId) {
-        throw new AppError("Редактировать может только автор проекта", 403)
-    }
+    await getOwnedProject(userId, projectId)
 
     const updated = await prisma.project.update({
         where: {
@@ -136,4 +142,15 @@ export async function updateProject(userId: number, projectId: number, data: { n
     })
 
     return updated
+}
+
+export async function deleteProject(userId: number, projectId: number) {
+
+    await getOwnedProject(userId, projectId)
+
+    await prisma.project.delete({
+        where: {
+            id: projectId
+        }
+    })
 }

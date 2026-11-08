@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { AppError } from "../utils/AppError.js"
-import { createProject, getProjectById, getProjects, updateProject } from "../services/project.service.js"
+import { createProject, deleteProject, getProjectById, getProjects, updateProject } from "../services/project.service.js"
 import { parseId } from "../utils/parseId.js"
 import { ProjectStatus } from "../generated/prisma/enums.js"
 
@@ -120,4 +120,17 @@ export async function updateProjectController(req: Request, res: Response) {
 
     const result = await updateProject(userId, projectId, { name, status, description, slogan, projectUrl, videoUrl, partners })
     res.json(result)
+}
+
+export async function deleteProjectController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const projectId = parseId(req.params.id)
+
+    await deleteProject(userId, projectId)
+    res.status(204).end()
 }
