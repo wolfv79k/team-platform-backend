@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { AppError } from "../utils/AppError.js"
-import { createProject, deleteProject, getProjectById, getProjects, removeProjectOpenRole, removeProjectSkill, setProjectOpenRole, setProjectSkill, updateProject } from "../services/project.service.js"
+import { changeMemberRole, createProject, deleteProject, getProjectById, getProjects, leaveProject, removeProjectMember, removeProjectOpenRole, removeProjectSkill, setProjectOpenRole, setProjectSkill, updateMyContribution, updateProject } from "../services/project.service.js"
 import { parseId } from "../utils/parseId.js"
 import { ProjectStatus, SkillLevel } from "../generated/prisma/enums.js"
 
@@ -200,4 +200,69 @@ export async function removeProjectOpenRoleController(req: Request, res: Respons
 
     await removeProjectOpenRole(userId, projectId, roleId)
     res.status(204).end()
+}
+
+export async function leaveProjectController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const projectId = parseId(req.params.id)
+
+    await leaveProject(userId, projectId)
+    res.status(204).end()
+}
+
+export async function removeProjectMemberController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const projectId = parseId(req.params.id)
+    const memberId = parseId(req.params.userId)
+
+    await removeProjectMember(userId, projectId, memberId)
+    res.status(204).end()
+}
+
+export async function updateMyContributionController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const projectId = parseId(req.params.id)
+
+    const { contribution } = req.body ?? {}
+
+    if (typeof contribution !== "string" || contribution.length > 1000) {
+        throw new AppError("Некорректно заполнен вклад, до 1000 символов", 400)
+    }
+
+    const result = await updateMyContribution(userId, projectId, contribution)
+    res.json(result)
+}
+
+export async function changeMemberRoleController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const projectId = parseId(req.params.id)
+    const memberId = parseId(req.params.userId)
+    const { roleId } = req.body ?? {}
+
+    if (!Number.isInteger(roleId)) {
+        throw new AppError("Некорректно указана роль", 400)
+    }
+
+    const result = await changeMemberRole(userId, projectId, memberId, roleId)
+    res.json(result)
 }

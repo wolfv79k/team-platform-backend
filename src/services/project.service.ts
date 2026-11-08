@@ -36,7 +36,7 @@ export async function createProject(authorId: number, data: { name: string, role
     })
 
     if (!role) {
-        throw new AppError("Роль не найдена", 400)
+        throw new AppError("Роль не найдена", 404)
     }
 
     const project = await prisma.project.create({
@@ -229,4 +229,94 @@ export async function removeProjectOpenRole(userId: number, projectId: number, r
     if (result.count === 0) {
         throw new AppError("Роль не найдена в проекте", 404)
     }
+}
+
+export async function leaveProject(userId: number, projectId: number) {
+    const project = await prisma.project.findUnique({
+        where: { id: projectId }
+    })
+
+    if (!project) {
+        throw new AppError("Проект не найден", 404)
+    }
+
+    if (project.authorId === userId) {
+        throw new AppError("Автор не может выйти из проекта", 400)
+    }
+
+    const result = await prisma.projectMember.deleteMany({
+        where: { userId, projectId }
+    })
+
+    if (result.count === 0) {
+        throw new AppError("Вы не участник проекта", 404)
+    }
+}
+
+export async function removeProjectMember(authorId: number, projectId: number, memberId: number) {
+
+    await getOwnedProject(authorId, projectId)
+
+    if (memberId === authorId) {
+        throw new AppError("Нельзя исключить себя", 400)
+    }
+
+    const result = await prisma.projectMember.deleteMany({
+        where: { userId: memberId, projectId }
+    })
+
+    if (result.count === 0) {
+        throw new AppError("Выбранный пользователь не участник проекта", 404)
+    }
+}
+
+export async function updateMyContribution(userId: number, projectId: number, contribution: string) {
+    const member = await prisma.projectMember.findUnique({
+        where: { userId_projectId: { userId, projectId } }
+    })
+
+    if (!member) {
+        throw new AppError("Вы не участник проекта", 404)
+    }
+
+    const updated = await prisma.projectMember.update({
+        where: { userId_projectId: { userId, projectId } },
+        data: {
+            contribution
+        },
+        include: { role: true, user: { omit: PUBLIC_USER_OMIT } }
+    })
+
+    return updated
+}
+
+export async function changeMemberRole(authorId: number, projectId: number, memberId: number, roleId: number) {
+
+    await getOwnedProject(authorId, projectId)
+
+    const role = await prisma.role.findUnique({
+        where: { id: roleId }
+    })
+
+    if (!role) {
+        throw new AppError("Роль не найдена", 404)
+    }
+
+    const member = await prisma.projectMember.findUnique({
+        where: { userId_projectId: { userId: memberId, projectId } }
+    })
+
+    if (!member) {
+        throw new AppError("Участник не найден", 404)
+    }
+
+    const updated = await prisma.projectMember.update({
+        where: { userId_projectId: { userId: memberId, projectId } },
+        data: {
+            roleId
+        },
+        include: { role: true, user: { omit: PUBLIC_USER_OMIT } }
+    })
+
+    return updated
 }
