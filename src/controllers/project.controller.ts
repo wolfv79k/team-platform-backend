@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { AppError } from "../utils/AppError.js"
-import { createProject, deleteProject, getProjectById, getProjects, removeProjectSkill, setProjectSkill, updateProject } from "../services/project.service.js"
+import { createProject, deleteProject, getProjectById, getProjects, removeProjectOpenRole, removeProjectSkill, setProjectOpenRole, setProjectSkill, updateProject } from "../services/project.service.js"
 import { parseId } from "../utils/parseId.js"
 import { ProjectStatus, SkillLevel } from "../generated/prisma/enums.js"
 
@@ -166,5 +166,38 @@ export async function removeProjectSkillController(req: Request, res: Response) 
     const projectId = parseId(req.params.id)
 
     await removeProjectSkill(userId, projectId, skillId)
+    res.status(204).end()
+}
+
+export async function setProjectOpenRoleController(req: Request, res: Response) {
+    const userId = req.userId
+    const { slots } = req.body ?? {}
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    if (slots !== undefined && (slots < 1 || slots > 20 || !Number.isInteger(slots))) {
+        throw new AppError("Неверное заполнение количества слотов", 400)
+    }
+
+    const roleId = parseId(req.params.roleId)
+    const projectId = parseId(req.params.id)
+
+    const result = await setProjectOpenRole(userId, projectId, roleId, slots)
+    res.json(result)
+}
+
+export async function removeProjectOpenRoleController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const roleId = parseId(req.params.roleId)
+    const projectId = parseId(req.params.id)
+
+    await removeProjectOpenRole(userId, projectId, roleId)
     res.status(204).end()
 }

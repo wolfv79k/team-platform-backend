@@ -191,3 +191,42 @@ export async function removeProjectSkill(userId: number, projectId: number, skil
         throw new AppError("Навык не найден в проекте", 404)
     }
 }
+
+export async function setProjectOpenRole(userId: number, projectId: number, roleId: number, slots?: number) {
+
+    await getOwnedProject(userId, projectId)
+
+    const role = await prisma.role.findUnique({
+        where: { id: roleId }
+    })
+
+    if (!role) {
+        throw new AppError("Роль не найдена", 404)
+    }
+
+    const result = await prisma.projectOpenRole.upsert({
+        where: { projectId_roleId: { projectId, roleId } },
+        create: {
+            projectId, roleId, slots
+        },
+        update: {
+            slots
+        },
+        include: { role: true }
+    })
+
+    return result
+}
+
+export async function removeProjectOpenRole(userId: number, projectId: number, roleId: number) {
+
+    await getOwnedProject(userId, projectId)
+
+    const result = await prisma.projectOpenRole.deleteMany({
+        where: { projectId, roleId }
+    })
+
+    if (result.count === 0) {
+        throw new AppError("Роль не найдена в проекте", 404)
+    }
+}
