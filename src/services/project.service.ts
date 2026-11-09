@@ -4,7 +4,7 @@ import type { ProjectStatus, SkillLevel } from "../generated/prisma/enums.js"
 import { AppError } from "../utils/AppError.js"
 import { PUBLIC_USER_OMIT } from "../utils/publicUser.js"
 
-const PROJECT_DETAILS_INCLUDE = {
+export const PROJECT_DETAILS_INCLUDE = {
     author: { omit: PUBLIC_USER_OMIT },
     projectMembers: { include: { user: { omit: PUBLIC_USER_OMIT }, role: true } },
     projectSkills: { include: { skill: true } },
