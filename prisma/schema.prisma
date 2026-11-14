@@ -12,6 +12,16 @@ datasource db {
   provider = "postgresql"
 }
 
+enum SocialPlatform {
+  GITHUB
+  TELEGRAM
+  VK
+  LINKEDIN
+  BEHANCE
+  OTHER
+  DISCORD
+}
+
 enum AppRole {
   USER
   ADMIN
@@ -65,6 +75,8 @@ model User {
   name                String?              @db.VarChar(100)
   bio                 String?              @db.Text
   avatarUrl           String?              @db.VarChar(500)
+  websiteUrl          String?              @db.VarChar(500)
+  resumeUrl           String?              @db.VarChar(500)
   role                AppRole              @default(USER)
   createdAt           DateTime             @default(now())
   locationId          Int?
@@ -83,6 +95,7 @@ model User {
   teamApplications    TeamApplication[]
   notifications       Notification[]
   oauthAccounts       OAuthAccount[]
+  socialLinks         UserSocialLink[]
 }
 
 model Skill {
@@ -329,4 +342,13 @@ model OAuthAccount {
   createdAt         DateTime @default(now())
 
   @@unique([provider, providerAccountId])
+}
+
+model UserSocialLink {
+  userId   Int
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform SocialPlatform
+  url      String         @db.VarChar(500)
+
+  @@id([userId, platform])
 }

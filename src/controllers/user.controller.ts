@@ -1,8 +1,23 @@
 import { getUserByUsername, removeUserSkill, setUserSkill, updateAvatar, updateMe } from "../services/user.service.js"
 import type { Request, Response } from 'express'
 import { AppError } from "../utils/AppError.js"
-import { SkillLevel } from "../generated/prisma/enums.js"
+import { SkillLevel, SocialPlatform } from "../generated/prisma/enums.js"
 import { parseId } from "../utils/parseId.js"
+import { removeSocialLinks, setUserSocialLinks } from "../services/user.service.js"
+
+function parsePlatform(value: unknown): SocialPlatform {
+    if (typeof value !== "string") {
+        throw new AppError("Неизвестная платформа", 400)
+    }
+
+    const platform = value.toUpperCase()
+
+    if (!(Object.values(SocialPlatform) as string[]).includes(platform)) {
+        throw new AppError("Неизвестная платформа", 400)
+    }
+
+    return platform as SocialPlatform
+}
 
 export async function getUserController(req: Request, res: Response) {
     const username = req.params.username
@@ -20,7 +35,7 @@ export async function updateMeController(req: Request, res: Response) {
     if (!userId) {
         throw new AppError("Требуется авторизация", 401)
     }
-    const { name, bio, username, locationId } = req.body ?? {}
+    const { name, bio, username, locationId, websiteUrl, resumeUrl } = req.body ?? {}
 
     if (name !== undefined && typeof name !== 'string') {
         throw new AppError("Неверный формат имени", 400)
@@ -34,11 +49,19 @@ export async function updateMeController(req: Request, res: Response) {
         throw new AppError("Неверный формат имени пользователя (используйте a-z, 0-9, _)", 400)
     }
 
-    if (locationId !== undefined && typeof locationId !== 'number') {
+    if (locationId !== undefined && !Number.isInteger(locationId)) {
         throw new AppError("Некорректный город", 400)
     }
 
-    const result = await updateMe(userId, { name, bio, username, locationId })
+    if (websiteUrl !== undefined && (typeof websiteUrl !== 'string' || websiteUrl.length > 500)) {
+        throw new AppError("Неверный формат сайта", 400)
+    }
+
+    if (resumeUrl !== undefined && (typeof resumeUrl !== 'string' || resumeUrl.length > 500)) {
+        throw new AppError("Неверный формат резюме", 400)
+    }
+
+    const result = await updateMe(userId, { name, bio, username, locationId, websiteUrl, resumeUrl })
     res.json(result)
 }
 
@@ -88,4 +111,33 @@ export async function updateAvatarController(req: Request, res: Response) {
 
     const result = await updateAvatar(userId, file)
     res.json(result)
+}
+
+export async function setUserSocialLinkController(req: Request, res: Response) {
+    const userId = req.userId
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const platform = parsePlatform(req.params.platform)
+    const { url } = req.body ?? {}
+
+    if (typeof url !== "string" || url.trim() === "" || url.length > 500) {
+        throw new AppError("Ссылка обязательна, до 500 символов", 400)
+    }
+
+    const result = await setUserSocialLinks(userId, platform, url.trim())
+    res.json(result)
+}
+
+export async function removeUserSocialLinkController(req: Request, res: Response) {
+    const userId = req.userId
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const platform = parsePlatform(req.params.platform)
+
+    await removeSocialLinks(userId, platform)
+    res.status(204).end()
 }

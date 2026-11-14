@@ -1,6 +1,6 @@
 import prisma from "../config/db.js"
 import { AppError } from "../utils/AppError.js"
-import { SkillLevel } from "../generated/prisma/enums.js"
+import { SkillLevel, SocialPlatform } from "../generated/prisma/enums.js"
 import supabase from "../config/supabase.js"
 import { PUBLIC_USER_OMIT } from "../utils/publicUser.js"
 
@@ -9,6 +9,7 @@ export async function getUserByUsername(username: string) {
         where: { username },
         include: {
             location: true,
+            socialLinks: true,
             userSkills: { include: { skill: true } },
             projectMembers: { include: { project: true, role: true } }
         },
@@ -22,8 +23,8 @@ export async function getUserByUsername(username: string) {
     return user
 }
 
-export async function updateMe(userId: number, data: { name?: string, bio?: string, username?: string, locationId?: number }) {
-    const { name, bio, username, locationId } = data
+export async function updateMe(userId: number, data: { name?: string, bio?: string, username?: string, locationId?: number, websiteUrl?: string, resumeUrl?: string }) {
+    const { name, bio, username, locationId, websiteUrl, resumeUrl } = data
     if (username) {
         const owner = await prisma.user.findUnique({
             where: { username }
@@ -44,7 +45,7 @@ export async function updateMe(userId: number, data: { name?: string, bio?: stri
         }
     }
 
-    const updateUser = await prisma.user.update({ where: { id: userId }, data: { name, bio, username, locationId }, omit: PUBLIC_USER_OMIT })
+    const updateUser = await prisma.user.update({ where: { id: userId }, data: { name, bio, username, locationId, websiteUrl, resumeUrl }, omit: PUBLIC_USER_OMIT })
     return updateUser
 }
 
@@ -102,4 +103,27 @@ export async function updateAvatar(userId: number, file: Express.Multer.File) {
     })
 
     return user
+}
+
+export async function setUserSocialLinks(userId: number, platform: SocialPlatform, url: string) {
+
+    const result = await prisma.userSocialLink.upsert({
+        where: { userId_platform: { userId, platform } },
+        create: {
+            userId, platform, url
+        },
+        update: { url }
+    })
+
+    return result
+}
+
+export async function removeSocialLinks(userId: number, platform: SocialPlatform) {
+    const result = await prisma.userSocialLink.deleteMany({
+        where: { userId, platform }
+    })
+
+    if (result.count === 0) {
+        throw new AppError("Соц. сеть не найден в профиле", 404)
+    }
 }
