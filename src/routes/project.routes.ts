@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import requireAuth from '../middlewares/requireAuth.js'
+import { applyToProjectController, getProjectApplicationsController, inviteToProjectController } from '../controllers/application.controller.js'
 import { changeMemberRoleController, createProjectController, deleteProjectController, getProjectController, getProjectsController, leaveProjectController, removeProjectMemberController, removeProjectOpenRoleController, removeProjectSkillController, setProjectOpenRoleController, setProjectSkillController, updateMyContributionController, updateProjectController } from '../controllers/project.controller.js'
 
 const router = Router()
@@ -17,5 +18,8 @@ router.delete('/:id/members/me', requireAuth, leaveProjectController)
 router.delete('/:id/members/:userId', requireAuth, removeProjectMemberController)
 router.patch('/:id/members/me', requireAuth, updateMyContributionController)
 router.patch('/:id/members/:userId', requireAuth, changeMemberRoleController)
+router.post('/:id/applications', requireAuth, applyToProjectController)
+router.get('/:id/applications', requireAuth, getProjectApplicationsController)
+router.post('/:id/invitations', requireAuth, inviteToProjectController)
 
 export default router

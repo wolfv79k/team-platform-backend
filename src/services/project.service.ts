@@ -93,7 +93,8 @@ export async function getProjects(data: { status?: ProjectStatus, skillId?: numb
     }
 
     if (roleId !== undefined) {
-        where.projectOpenRoles = { some: { roleId } }
+        // Роль с 0 мест остаётся в проекте, но в фильтре «ищут» показываем только со свободными местами
+        where.projectOpenRoles = { some: { roleId, slots: { gt: 0 } } }
     }
 
     if (search) {

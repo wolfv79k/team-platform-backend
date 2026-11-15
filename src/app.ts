@@ -5,6 +5,7 @@ import dictionaryRouter from './routes/dictionary.routes.js'
 import userRouter from "./routes/user.routes.js"
 import projectRouter from "./routes/project.routes.js"
 import ideaRouter from "./routes/idea.routes.js"
+import applicationRouter from "./routes/application.routes.js"
 import notFound from './middlewares/notFound.js'
 import errorHandler from './middlewares/errorHandler.js'
 import cors from 'cors'
@@ -24,6 +25,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/users', userRouter)
 app.use('/api/projects', projectRouter)
 app.use('/api/ideas', ideaRouter)
+app.use('/api/applications', applicationRouter)
 app.use(notFound)
 app.use(errorHandler)
 
