@@ -3,7 +3,9 @@ import prisma from "../config/db.js"
 import { AppError } from "../utils/AppError.js";
 import jwt from "jsonwebtoken";
 import JWT_SECRET from "../config/jwt.js";
-import type { User } from "../generated/prisma/client.js";
+import { sendVerificationEmail } from "../config/email.js"
+import { Prisma, type User } from "../generated/prisma/client.js"
+import { EMAIL_CODE_LIFETIME_MINUTES, generateVerificationCode } from "./emailVerification.service.js"
 
 async function generateUsername(login: string | null, email: string | null) {
     const base = (login ?? email?.split('@')[0] ?? 'user').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 40) || 'user'
@@ -20,7 +22,7 @@ function createAuthResponse(user: User) {
     return { token, user: publicUser }
 }
 
-export async function register(email: string, username: string, password: string, locationId: number) {
+export async function register(email: string, username: string, password: string, locationId?: number | null) {
     const checkEmail = await prisma.user.findUnique({
         where: { email }
     })
@@ -39,9 +41,29 @@ export async function register(email: string, username: string, password: string
 
     const passwordHash = await bcrypt.hash(password, 10)
 
-    const user = await prisma.user.create({ data: { email, username, passwordHash, locationId }, omit: { passwordHash: true } })
+    const { code, codeHash, createdAt, expiresAt } = generateVerificationCode(email)
+    const user = await prisma.user.create({
+        data: {
+            email,
+            username,
+            passwordHash,
+            locationId,
+            emailVerified: false,
+            emailVerificationCode: { create: { codeHash, createdAt, expiresAt } }
+        },
+        omit: { passwordHash: true }
+    }).catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+            throw new AppError("Почта или никнейм уже зарегистрированы", 409)
+        }
 
-    return user
+        console.error("Не удалось сохранить данные подтверждения email")
+        throw new AppError("Подтверждение email временно недоступно", 503)
+    })
+
+    const verificationEmailSent = await sendVerificationEmail(email, code, EMAIL_CODE_LIFETIME_MINUTES)
+
+    return { user, verificationEmailSent }
 }
 
 export async function login(email: string, password: string) {
@@ -57,6 +79,10 @@ export async function login(email: string, password: string) {
 
     if (!checkPassword) {
         throw new AppError("Неверные почта или пароль", 401)
+    }
+
+    if (!user.emailVerified) {
+        throw new AppError("Подтвердите email перед входом", 403, "EMAIL_NOT_VERIFIED")
     }
 
     return createAuthResponse(user)

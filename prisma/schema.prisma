@@ -68,34 +68,36 @@ enum NotificationType {
 }
 
 model User {
-  id                  Int                  @id @default(autoincrement())
-  email               String?              @unique @db.VarChar(255)
-  passwordHash        String?              @db.VarChar(255)
-  username            String               @unique @db.VarChar(50)
-  name                String?              @db.VarChar(100)
-  bio                 String?              @db.Text
-  avatarUrl           String?              @db.VarChar(500)
-  websiteUrl          String?              @db.VarChar(500)
-  resumeUrl           String?              @db.VarChar(500)
-  role                AppRole              @default(USER)
-  createdAt           DateTime             @default(now())
-  locationId          Int?
-  location            Location?            @relation(fields: [locationId], references: [id])
-  userSkills          UserSkill[]
-  authoredProjects    Project[]
-  projectMembers      ProjectMember[]
-  projectApplications ProjectApplication[]
-  ideas               Idea[]
-  createdCommunities  Community[]
-  communityMembers    CommunityMember[]
-  posts               Post[]
-  comments            Comment[]
-  captainedTeams      Team[]
-  teamMembers         TeamMember[]
-  teamApplications    TeamApplication[]
-  notifications       Notification[]
-  oauthAccounts       OAuthAccount[]
-  socialLinks         UserSocialLink[]
+  id                    Int                    @id @default(autoincrement())
+  email                 String?                @unique @db.VarChar(255)
+  passwordHash          String?                @db.VarChar(255)
+  username              String                 @unique @db.VarChar(50)
+  name                  String?                @db.VarChar(100)
+  bio                   String?                @db.Text
+  avatarUrl             String?                @db.VarChar(500)
+  websiteUrl            String?                @db.VarChar(500)
+  resumeUrl             String?                @db.VarChar(500)
+  role                  AppRole                @default(USER)
+  createdAt             DateTime               @default(now())
+  locationId            Int?
+  location              Location?              @relation(fields: [locationId], references: [id])
+  userSkills            UserSkill[]
+  authoredProjects      Project[]
+  projectMembers        ProjectMember[]
+  projectApplications   ProjectApplication[]
+  ideas                 Idea[]
+  createdCommunities    Community[]
+  communityMembers      CommunityMember[]
+  posts                 Post[]
+  comments              Comment[]
+  captainedTeams        Team[]
+  teamMembers           TeamMember[]
+  teamApplications      TeamApplication[]
+  notifications         Notification[]
+  oauthAccounts         OAuthAccount[]
+  socialLinks           UserSocialLink[]
+  emailVerified         Boolean                @default(false)
+  emailVerificationCode EmailVerificationCode?
 }
 
 model Skill {
@@ -351,4 +353,14 @@ model UserSocialLink {
   url      String         @db.VarChar(500)
 
   @@id([userId, platform])
+}
+
+model EmailVerificationCode {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String   @db.VarChar(255)
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
 }

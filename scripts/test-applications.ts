@@ -1,11 +1,18 @@
 // Проверка заявок и приглашений целиком, через настоящие HTTP-запросы.
-// Запуск (сервер должен работать в другом терминале через npm run dev):
-//   npx tsx --env-file=.env scripts/test-applications.ts
-// Создаёт пользователей agent_test_* и в конце удаляет всё, что создал.
+// Запуск с отдельным тестовым сервером и его изолированной БД:
+//   npx tsx --env-file=.env.test scripts/test-applications.ts
+// TEST_BASE_URL указывает на тестовый сервер, TEST_DATABASE_URL — на ту же БД,
+// которая указана в DATABASE_URL тестового сервера.
 
-import prisma from "../src/config/db.js"
+import bcrypt from "bcryptjs"
+import { PrismaPg } from "@prisma/adapter-pg"
+import { PrismaClient } from "../src/generated/prisma/client.js"
 
-const BASE = process.env.TEST_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3000}`
+const { TEST_BASE_URL: BASE, TEST_DATABASE_URL } = process.env
+if (!BASE || !TEST_DATABASE_URL) {
+    throw new Error("Укажите TEST_BASE_URL и TEST_DATABASE_URL для изолированного тестового окружения")
+}
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: TEST_DATABASE_URL }) })
 const PREFIX = `agent_test_${Date.now().toString(36)}`
 
 let passed = 0
@@ -41,8 +48,9 @@ async function createUser(name: string, locationId: number) {
     const email = `${PREFIX}_${name}@example.com`
     const username = `${PREFIX}_${name}`
     const password = "test123456"
-    const reg = await api("POST", "/api/auth/register", undefined, { email, username, password, locationId })
-    if (reg.status !== 201) throw new Error(`Регистрация ${name} не удалась: ${reg.status} ${JSON.stringify(reg.data)}`)
+    await prisma.user.create({
+        data: { email, username, passwordHash: await bcrypt.hash(password, 10), locationId, emailVerified: true }
+    })
     const login = await api("POST", "/api/auth/login", undefined, { email, password })
     if (login.status !== 200) throw new Error(`Логин ${name} не удался: ${login.status} ${JSON.stringify(login.data)}`)
     return { id: login.data.user.id as number, token: login.data.token as string }
