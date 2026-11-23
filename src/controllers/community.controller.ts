@@ -1,7 +1,34 @@
 import type { Request, Response } from "express"
 import { AppError } from "../utils/AppError.js"
 import { parseId } from "../utils/parseId.js"
-import { createCommunity, deleteCommunity, getCommunities, getCommunityById, joinCommunity, leaveCommunity, updateCommunity } from "../services/community.service.js"
+import {
+    createCommunity, createCommunityPost, createPostComment,
+    deleteCommunity, deleteCommunityPost, deletePostComment,
+    getCommunities, getCommunityById, getCommunityPosts, getPostComments,
+    joinCommunity, leaveCommunity, updateCommunity
+} from "../services/community.service.js"
+
+function parsePagination(query: Request["query"]) {
+    const { page, limit } = query
+    const pageNum = page === undefined ? 1 : parseId(page)
+    const limitNum = limit === undefined ? 10 : Math.min(parseId(limit), 50)
+
+    return { page: pageNum, limit: limitNum }
+}
+
+function parseText(text: unknown) {
+    if (typeof text !== "string" || text.includes("\0")) {
+        throw new AppError("Укажите текст", 400)
+    }
+
+    const trimmedText = text.trim()
+
+    if (!trimmedText) {
+        throw new AppError("Укажите текст", 400)
+    }
+
+    return trimmedText
+}
 
 export async function createCommunityController(req: Request, res: Response) {
     const userId = req.userId
@@ -37,19 +64,18 @@ export async function getCommunityController(req: Request, res: Response) {
 }
 
 export async function getCommunitiesController(req: Request, res: Response) {
-    const { search, page, limit } = req.query
+    const { search } = req.query
 
     if (search !== undefined && typeof search !== "string") {
         throw new AppError("Неверный поиск", 400)
     }
 
-    const pageNum = page === undefined ? 1 : parseId(page)
-    const limitNum = limit === undefined ? 10 : Math.min(parseId(limit), 50)
+    const { page, limit } = parsePagination(req.query)
 
     const result = await getCommunities({
         search: search?.trim() || undefined,
-        page: pageNum,
-        limit: limitNum
+        page,
+        limit
     })
 
     res.json(result)
@@ -131,5 +157,93 @@ export async function leaveCommunityController(req: Request, res: Response) {
     const communityId = parseId(req.params.id)
 
     await leaveCommunity(userId, communityId)
+    res.status(204).end()
+}
+
+export async function getCommunityPostsController(req: Request, res: Response) {
+    const communityId = parseId(req.params.id)
+    const result = await getCommunityPosts(communityId, parsePagination(req.query))
+    res.json(result)
+}
+
+export async function createCommunityPostController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const communityId = parseId(req.params.id)
+    const { title, text } = req.body ?? {}
+    const trimmedText = parseText(text)
+    let trimmedTitle: string | undefined
+
+    if (title !== undefined) {
+        if (typeof title !== "string" || title.includes("\0")) {
+            throw new AppError("Заголовок должен быть непустым, до 255 символов", 400)
+        }
+
+        trimmedTitle = title.trim()
+
+        if (!trimmedTitle || [...trimmedTitle].length > 255) {
+            throw new AppError("Заголовок должен быть непустым, до 255 символов", 400)
+        }
+    }
+
+    const result = await createCommunityPost(userId, communityId, {
+        text: trimmedText,
+        title: trimmedTitle
+    })
+    res.status(201).json(result)
+}
+
+export async function deleteCommunityPostController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const communityId = parseId(req.params.id)
+    const postId = parseId(req.params.postId)
+
+    await deleteCommunityPost(userId, communityId, postId)
+    res.status(204).end()
+}
+
+export async function getPostCommentsController(req: Request, res: Response) {
+    const communityId = parseId(req.params.id)
+    const postId = parseId(req.params.postId)
+    const result = await getPostComments(communityId, postId, parsePagination(req.query))
+    res.json(result)
+}
+
+export async function createPostCommentController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const communityId = parseId(req.params.id)
+    const postId = parseId(req.params.postId)
+    const text = parseText(req.body?.text)
+
+    const result = await createPostComment(userId, communityId, postId, text)
+    res.status(201).json(result)
+}
+
+export async function deletePostCommentController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const communityId = parseId(req.params.id)
+    const postId = parseId(req.params.postId)
+    const commentId = parseId(req.params.commentId)
+
+    await deletePostComment(userId, communityId, postId, commentId)
     res.status(204).end()
 }
