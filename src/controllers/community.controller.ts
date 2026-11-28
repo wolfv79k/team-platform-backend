@@ -1,20 +1,13 @@
 import type { Request, Response } from "express"
 import { AppError } from "../utils/AppError.js"
 import { parseId } from "../utils/parseId.js"
+import { parsePagination } from "../utils/parsePagination.js"
 import {
     createCommunity, createCommunityPost, createPostComment,
     deleteCommunity, deleteCommunityPost, deletePostComment,
     getCommunities, getCommunityById, getCommunityPosts, getPostComments,
     joinCommunity, leaveCommunity, updateCommunity
 } from "../services/community.service.js"
-
-function parsePagination(query: Request["query"]) {
-    const { page, limit } = query
-    const pageNum = page === undefined ? 1 : parseId(page)
-    const limitNum = limit === undefined ? 10 : Math.min(parseId(limit), 50)
-
-    return { page: pageNum, limit: limitNum }
-}
 
 function parseText(text: unknown) {
     if (typeof text !== "string" || text.includes("\0")) {

@@ -2,6 +2,7 @@ import prisma from "../config/db.js"
 import type { Prisma } from "../generated/prisma/client.js"
 import type { ProjectStatus, SkillLevel } from "../generated/prisma/enums.js"
 import { AppError } from "../utils/AppError.js"
+import { isAdmin } from "../utils/isAdmin.js"
 import { PUBLIC_USER_OMIT } from "../utils/publicUser.js"
 
 export const PROJECT_DETAILS_INCLUDE = {
@@ -11,7 +12,7 @@ export const PROJECT_DETAILS_INCLUDE = {
     projectOpenRoles: { include: { role: true } }
 } as const
 
-async function getOwnedProject(userId: number, projectId: number) {
+async function getProjectOrThrow(projectId: number) {
     const project = await prisma.project.findUnique({
         where: { id: projectId }
     })
@@ -20,11 +21,25 @@ async function getOwnedProject(userId: number, projectId: number) {
         throw new AppError("Проект не найден", 404)
     }
 
+    return project
+}
+
+async function getOwnedProject(userId: number, projectId: number) {
+    const project = await getProjectOrThrow(projectId)
+
     if (project.authorId !== userId) {
         throw new AppError("Действие доступно только автору проекта", 403)
     }
 
     return project
+}
+
+async function requireProjectAuthorOrAdmin(userId: number, projectId: number) {
+    const project = await getProjectOrThrow(projectId)
+
+    if (project.authorId !== userId && !(await isAdmin(userId))) {
+        throw new AppError("Действие доступно только автору или администратору проекта", 403)
+    }
 }
 
 export async function createProject(authorId: number, data: { name: string, roleId: number, description?: string, slogan?: string, projectUrl?: string, videoUrl?: string, partners?: string[] }) {
@@ -101,10 +116,31 @@ export async function getProjects(data: { status?: ProjectStatus, skillId?: numb
         where.name = { contains: search, mode: "insensitive" }
     }
 
+    return getProjectsPage(where, page, limit)
+}
+
+export async function getMyProjects(userId: number, data: { page: number, limit: number }) {
+    const { page, limit } = data
+    const where: Prisma.ProjectWhereInput = {
+        OR: [
+            { authorId: userId },
+            { projectMembers: { some: { userId } } }
+        ]
+    }
+
+    return getProjectsPage(where, page, limit, [{ createdAt: "desc" }, { id: "desc" }])
+}
+
+async function getProjectsPage(
+    where: Prisma.ProjectWhereInput,
+    page: number,
+    limit: number,
+    orderBy: Prisma.ProjectOrderByWithRelationInput | Prisma.ProjectOrderByWithRelationInput[] = { createdAt: "desc" }
+) {
     const [projects, total] = await Promise.all([
         prisma.project.findMany({
             where,
-            orderBy: { createdAt: "desc" },
+            orderBy,
             skip: (page - 1) * limit,
             take: limit,
             include: {
@@ -123,7 +159,7 @@ export async function getProjects(data: { status?: ProjectStatus, skillId?: numb
 export async function updateProject(userId: number, projectId: number, data: { name?: string, status?: ProjectStatus, description?: string, slogan?: string, projectUrl?: string, videoUrl?: string, partners?: string[] }) {
     const { name, status, description, slogan, projectUrl, videoUrl, partners } = data
 
-    await getOwnedProject(userId, projectId)
+    await requireProjectAuthorOrAdmin(userId, projectId)
 
     const updated = await prisma.project.update({
         where: {
@@ -147,7 +183,7 @@ export async function updateProject(userId: number, projectId: number, data: { n
 
 export async function deleteProject(userId: number, projectId: number) {
 
-    await getOwnedProject(userId, projectId)
+    await requireProjectAuthorOrAdmin(userId, projectId)
 
     await prisma.project.delete({
         where: {

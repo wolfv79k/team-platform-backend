@@ -95,6 +95,7 @@ model User {
   teamApplications      TeamApplication[]
   notifications         Notification[]
   oauthAccounts         OAuthAccount[]
+  refreshSessions       RefreshSession[]
   socialLinks           UserSocialLink[]
   emailVerified         Boolean                @default(false)
   emailVerificationCode EmailVerificationCode?
@@ -288,14 +289,15 @@ model TeamSkill {
 }
 
 model Hackathon {
-  id             Int             @id @default(autoincrement())
-  name           String          @db.VarChar(255)
-  description    String?         @db.Text
-  startDate      DateTime
-  endDate        DateTime
-  location       String?         @db.VarChar(255)
-  organizerUrl   String?         @db.VarChar(500)
-  hackathonTeams HackathonTeam[]
+  id                   Int             @id @default(autoincrement())
+  name                 String          @db.VarChar(255)
+  description          String?         @db.Text
+  startDate            DateTime
+  endDate              DateTime
+  registrationDeadline DateTime
+  location             String?         @db.VarChar(255)
+  organizerUrl         String?         @db.VarChar(500)
+  hackathonTeams       HackathonTeam[]
 }
 
 model HackathonTeam {
@@ -344,6 +346,18 @@ model OAuthAccount {
   createdAt         DateTime @default(now())
 
   @@unique([provider, providerAccountId])
+}
+
+model RefreshSession {
+  id        String    @id @db.Uuid
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @db.VarChar(64)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model UserSocialLink {

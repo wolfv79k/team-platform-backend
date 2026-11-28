@@ -2,6 +2,7 @@ import { register, login, oAuthLogin, getMe } from "../services/auth.service.js"
 import type { Request, Response } from 'express'
 import { AppError } from "../utils/AppError.js"
 import { resendVerification, verifyEmail } from "../services/emailVerification.service.js"
+import { refreshSession, revokeRefreshSession } from "../services/refreshSession.service.js"
 
 const RESEND_SOURCE_WINDOW_MS = 60_000
 const RESEND_SOURCE_LIMIT = 5
@@ -59,9 +60,14 @@ export async function resendVerificationController(req: Request, res: Response) 
 }
 
 export async function loginController(req: Request, res: Response) {
-    const { email, password } = req.body
+    const { email, password } = req.body ?? {}
+
+    if (typeof email !== "string" || typeof password !== "string") {
+        throw new AppError("Неверные почта или пароль", 401)
+    }
+
     const result = await login(email, password)
-    res.json(result)
+    res.set("Cache-Control", "no-store").json(result)
 }
 
 export async function oAuthController(req: Request, res: Response) {
@@ -70,7 +76,17 @@ export async function oAuthController(req: Request, res: Response) {
         throw new AppError("Некорректный провайдер", 400)
     }
     const result = await oAuthLogin(provider, providerAccountId, name ?? null, email ?? null, image ?? null, providerLogin ?? null)
-    res.json(result)
+    res.set("Cache-Control", "no-store").json(result)
+}
+
+export async function refreshController(req: Request, res: Response) {
+    const result = await refreshSession(req.body?.refreshToken)
+    res.set("Cache-Control", "no-store").json(result)
+}
+
+export async function logoutController(req: Request, res: Response) {
+    await revokeRefreshSession(req.body?.refreshToken)
+    res.status(204).end()
 }
 
 export async function meController(req: Request, res: Response) {

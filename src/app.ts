@@ -7,6 +7,10 @@ import projectRouter from "./routes/project.routes.js"
 import communityRouter from "./routes/community.routes.js"
 import ideaRouter from "./routes/idea.routes.js"
 import applicationRouter from "./routes/application.routes.js"
+import adminRouter from "./routes/admin.routes.js"
+import notificationRouter from "./routes/notification.routes.js"
+import hackathonRouter from "./routes/hackathon.routes.js"
+import teamRouter from "./routes/team.routes.js"
 import notFound from './middlewares/notFound.js'
 import errorHandler from './middlewares/errorHandler.js'
 import cors from 'cors'
@@ -28,6 +32,10 @@ app.use('/api/projects', projectRouter)
 app.use('/api/communities', communityRouter)
 app.use('/api/ideas', ideaRouter)
 app.use('/api/applications', applicationRouter)
+app.use('/api/notifications', notificationRouter)
+app.use('/api/hackathons', hackathonRouter)
+app.use('/api/teams', teamRouter)
+app.use('/api/admin', adminRouter)
 app.use(notFound)
 app.use(errorHandler)
 

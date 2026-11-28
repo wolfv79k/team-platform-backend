@@ -3,11 +3,13 @@ import { Router } from 'express'
 import requireAuth from "../middlewares/requireAuth.js"
 import upload from "../middlewares/upload.js"
 import { getMyApplicationsController } from "../controllers/application.controller.js"
+import { getMyProjectsController } from "../controllers/project.controller.js"
 
 
 const router = Router()
 
 router.get('/me/applications', requireAuth, getMyApplicationsController)
+router.get('/me/projects', requireAuth, getMyProjectsController)
 router.get('/:username', getUserController)
 router.post('/me/avatar', requireAuth, upload.single('avatar'), updateAvatarController)
 router.patch('/me', requireAuth, updateMeController)

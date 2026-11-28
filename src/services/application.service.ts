@@ -1,6 +1,6 @@
 import prisma from "../config/db.js"
 import type { Prisma } from "../generated/prisma/client.js"
-import type { ApplicationStatus, ApplicationType } from "../generated/prisma/enums.js"
+import type { ApplicationStatus, ApplicationType, ProjectStatus } from "../generated/prisma/enums.js"
 import { AppError } from "../utils/AppError.js"
 import { PUBLIC_USER_OMIT } from "../utils/publicUser.js"
 
@@ -12,8 +12,8 @@ export const APPLICATION_INCLUDE = {
 } as const
 
 // Общие проверки перед созданием заявки или приглашения
-async function assertCanJoin(userId: number, projectId: number, roleId: number) {
-    const member = await prisma.projectMember.findUnique({
+async function assertCanJoin(tx: Prisma.TransactionClient, userId: number, projectId: number, roleId: number) {
+    const member = await tx.projectMember.findUnique({
         where: { userId_projectId: { userId, projectId } }
     })
 
@@ -21,7 +21,7 @@ async function assertCanJoin(userId: number, projectId: number, roleId: number) 
         throw new AppError("Пользователь уже участник проекта", 409)
     }
 
-    const openRole = await prisma.projectOpenRole.findUnique({
+    const openRole = await tx.projectOpenRole.findUnique({
         where: { projectId_roleId: { projectId, roleId } }
     })
 
@@ -34,7 +34,7 @@ async function assertCanJoin(userId: number, projectId: number, roleId: number) 
     }
 
     // Одна висящая заявка или приглашение между человеком и проектом
-    const pending = await prisma.projectApplication.findFirst({
+    const pending = await tx.projectApplication.findFirst({
         where: { userId, projectId, status: "PENDING" }
     })
 
@@ -55,51 +55,86 @@ async function getProjectOrThrow(projectId: number) {
     return project
 }
 
+async function lockProjectForApplication(tx: Prisma.TransactionClient, projectId: number) {
+    // Заявка и приглашение проверяют PENDING под одной блокировкой проекта.
+    const [project] = await tx.$queryRaw<{ authorId: number, status: ProjectStatus }[]>`
+        SELECT "authorId", "status" FROM "Project" WHERE "id" = ${projectId} FOR NO KEY UPDATE
+    `
+
+    if (!project) {
+        throw new AppError("Проект не найден", 404)
+    }
+
+    return project
+}
+
+async function createApplicationWithNotification(
+    tx: Prisma.TransactionClient,
+    data: { userId: number, projectId: number, roleId: number, type: ApplicationType, message?: string },
+    recipientId: number
+) {
+    const application = await tx.projectApplication.create({
+        data,
+        include: APPLICATION_INCLUDE
+    })
+
+    await tx.notification.create({
+        data: {
+            recipientId,
+            entityId: application.id,
+            type: data.type === "REQUEST" ? "PROJECT_REQUEST" : "PROJECT_INVITATION"
+        }
+    })
+
+    return application
+}
+
 // Пользователь сам просится в проект
 export async function applyToProject(userId: number, projectId: number, roleId: number, message?: string) {
-    const project = await getProjectOrThrow(projectId)
+    return prisma.$transaction(async (tx) => {
+        const project = await lockProjectForApplication(tx, projectId)
 
-    if (project.status !== "RECRUITMENT") {
-        throw new AppError("Проект не набирает команду", 400)
-    }
+        if (project.status !== "RECRUITMENT") {
+            throw new AppError("Проект не набирает команду", 400)
+        }
 
-    if (project.authorId === userId) {
-        throw new AppError("Автор уже состоит в проекте", 400)
-    }
+        if (project.authorId === userId) {
+            throw new AppError("Автор уже состоит в проекте", 400)
+        }
 
-    await assertCanJoin(userId, projectId, roleId)
+        await assertCanJoin(tx, userId, projectId, roleId)
 
-    return prisma.projectApplication.create({
-        data: { userId, projectId, roleId, message, type: "REQUEST" },
-        include: APPLICATION_INCLUDE
+        return createApplicationWithNotification(tx, { userId, projectId, roleId, message, type: "REQUEST" }, project.authorId)
     })
 }
 
 // Автор зовёт пользователя в проект
 export async function inviteToProject(authorId: number, projectId: number, invitedUserId: number, roleId: number, message?: string) {
-    const project = await getProjectOrThrow(projectId)
+    return prisma.$transaction(async (tx) => {
+        const project = await lockProjectForApplication(tx, projectId)
 
-    if (project.authorId !== authorId) {
-        throw new AppError("Приглашать может только автор проекта", 403)
-    }
+        if (project.authorId !== authorId) {
+            throw new AppError("Приглашать может только автор проекта", 403)
+        }
 
-    if (invitedUserId === authorId) {
-        throw new AppError("Нельзя пригласить себя", 400)
-    }
+        if (invitedUserId === authorId) {
+            throw new AppError("Нельзя пригласить себя", 400)
+        }
 
-    const invited = await prisma.user.findUnique({
-        where: { id: invitedUserId }
-    })
+        const invited = await tx.user.findUnique({
+            where: { id: invitedUserId },
+            select: { id: true }
+        })
 
-    if (!invited) {
-        throw new AppError("Пользователь не найден", 404)
-    }
+        if (!invited) {
+            throw new AppError("Пользователь не найден", 404)
+        }
 
-    await assertCanJoin(invitedUserId, projectId, roleId)
+        await assertCanJoin(tx, invitedUserId, projectId, roleId)
 
-    return prisma.projectApplication.create({
-        data: { userId: invitedUserId, projectId, roleId, message, type: "INVITATION" },
-        include: APPLICATION_INCLUDE
+        return createApplicationWithNotification(tx, {
+            userId: invitedUserId, projectId, roleId, message, type: "INVITATION"
+        }, invitedUserId)
     })
 }
 

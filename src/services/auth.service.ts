@@ -1,11 +1,11 @@
 import bcrypt from "bcryptjs";
 import prisma from "../config/db.js"
 import { AppError } from "../utils/AppError.js";
-import jwt from "jsonwebtoken";
-import JWT_SECRET from "../config/jwt.js";
+import { getRefreshJwtSecret } from "../config/jwt.js"
 import { sendVerificationEmail } from "../config/email.js"
 import { Prisma, type User } from "../generated/prisma/client.js"
 import { EMAIL_CODE_LIFETIME_MINUTES, generateVerificationCode } from "./emailVerification.service.js"
+import { createRefreshSession } from "./refreshSession.service.js"
 
 async function generateUsername(login: string | null, email: string | null) {
     const base = (login ?? email?.split('@')[0] ?? 'user').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 40) || 'user'
@@ -16,10 +16,11 @@ async function generateUsername(login: string | null, email: string | null) {
     return username
 }
 
-function createAuthResponse(user: User) {
+async function createAuthResponse(user: User) {
     const { passwordHash, ...publicUser } = user
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" })
-    return { token, user: publicUser }
+    const tokens = await createRefreshSession(user.id)
+
+    return { ...tokens, user: publicUser }
 }
 
 export async function register(email: string, username: string, password: string, locationId?: number | null) {
@@ -89,6 +90,8 @@ export async function login(email: string, password: string) {
 }
 
 export async function oAuthLogin(provider: string, providerAccountId: string, name: string | null, email: string | null, image: string | null, providerLogin: string | null) {
+    getRefreshJwtSecret()
+
     const account = await prisma.oAuthAccount.findUnique({
         where: {
             provider_providerAccountId: { provider, providerAccountId }

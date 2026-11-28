@@ -1,7 +1,8 @@
 import type { Request, Response } from "express"
 import { AppError } from "../utils/AppError.js"
-import { changeMemberRole, createProject, deleteProject, getProjectById, getProjects, leaveProject, removeProjectMember, removeProjectOpenRole, removeProjectSkill, setProjectOpenRole, setProjectSkill, updateMyContribution, updateProject } from "../services/project.service.js"
+import { changeMemberRole, createProject, deleteProject, getMyProjects, getProjectById, getProjects, leaveProject, removeProjectMember, removeProjectOpenRole, removeProjectSkill, setProjectOpenRole, setProjectSkill, updateMyContribution, updateProject } from "../services/project.service.js"
 import { parseId } from "../utils/parseId.js"
+import { parsePagination } from "../utils/parsePagination.js"
 import { ProjectStatus, SkillLevel } from "../generated/prisma/enums.js"
 
 
@@ -77,6 +78,17 @@ export async function getProjectsController(req: Request, res: Response) {
         limit: limitNum
     })
 
+    res.json(result)
+}
+
+export async function getMyProjectsController(req: Request, res: Response) {
+    const userId = req.userId
+
+    if (!userId) {
+        throw new AppError("Требуется авторизация", 401)
+    }
+
+    const result = await getMyProjects(userId, parsePagination(req.query))
     res.json(result)
 }
 

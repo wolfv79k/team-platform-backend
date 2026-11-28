@@ -17,7 +17,15 @@ export default function requireAuth(req: Request, res: Response, next: NextFunct
     }
 
     try {
-        const payload = jwt.verify(token, JWT_SECRET) as { userId: number }
+        const payload = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] })
+
+        // Старые access JWT выпущены без purpose и действуют до исходного exp.
+        if (typeof payload === "string" || (payload.purpose !== undefined && payload.purpose !== "access") ||
+            typeof payload.userId !== "number" || !Number.isInteger(payload.userId) ||
+            payload.userId <= 0 || payload.userId > 2_147_483_647 || typeof payload.exp !== "number") {
+            throw new AppError("Токен недействителен", 401)
+        }
+
         req.userId = payload.userId
     } catch {
         throw new AppError("Токен недействителен", 401)

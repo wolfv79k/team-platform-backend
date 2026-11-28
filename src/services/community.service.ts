@@ -275,6 +275,14 @@ export async function deleteCommunityPost(userId: number, communityId: number, p
         throw new AppError("Удалить пост может только его автор или создатель сообщества", 403)
     }
 
+    await deletePostWithComments(communityId, postId)
+}
+
+export async function deleteCommunityPostAsAdmin(communityId: number, postId: number) {
+    await deletePostWithComments(communityId, postId)
+}
+
+async function deletePostWithComments(communityId: number, postId: number) {
     await prisma.$transaction(async (tx) => {
         // Блокировка поста не даёт добавить к нему комментарий между двумя удалениями.
         const [lockedPost] = await tx.$queryRaw<{ id: number }[]>`
@@ -354,6 +362,15 @@ export async function deletePostComment(userId: number, communityId: number, pos
         }
     }
 
+    await deleteComment(postId, commentId)
+}
+
+export async function deletePostCommentAsAdmin(communityId: number, postId: number, commentId: number) {
+    await getCommunityPost(communityId, postId)
+    await deleteComment(postId, commentId)
+}
+
+async function deleteComment(postId: number, commentId: number) {
     const result = await prisma.comment.deleteMany({
         where: { id: commentId, postId }
     })
